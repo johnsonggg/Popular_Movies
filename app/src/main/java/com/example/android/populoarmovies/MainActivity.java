@@ -1,7 +1,7 @@
 package com.example.android.populoarmovies;
 
 import android.app.Activity;
-import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -9,12 +9,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.BaseAdapter;
+import android.view.ViewConfiguration;
+import android.widget.AdapterView;
 import android.widget.GridView;
-import android.widget.ImageView;
-
-import com.squareup.picasso.Picasso;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -24,11 +21,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class MainActivity extends Activity {
-
+    private GridView gridView;
+    private GridviewAdapter gridViewAdapter;
+    private int numColumn = 3;
     String[] items = new String[]{};
 
 //            "http://image.tmdb.org/t/p/w342/5JU9ytZJyR3zmClGmVm9q4Geqbd.jpg",
@@ -46,19 +46,31 @@ public class MainActivity extends Activity {
 //            R.drawable.test1,
 //            R.drawable.test1,
 //    };
+
     /**
      * Called when the activity is first created.
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.fragment_main);
+        setContentView(R.layout.activity_main);
+        setHasOptionsMenu(true);
+        gridView = (GridView) findViewById(R.id.gridview);
+        GridviewAdapter gridviewAdapter = new GridviewAdapter(MainActivity.this,items);
+        gridView.setAdapter(gridViewAdapter);
+        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 
-        if (savedInstanceState == null) {
-            getFragmentManager().beginTransaction()
-                    .add(R.id.container,new MainFragment())
-                    .commit();
-        }
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view,
+                                    int position, long id) {
+                String rutaDeLaImagen = gridViewAdapter.getItem(position).toString();
+
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.setDataAndType(Uri.parse("file://" + rutaDeLaImagen), "image/*");
+                startActivity(intent);
+            }
+        });
 
     }
 
@@ -70,14 +82,29 @@ public class MainActivity extends Activity {
 //            }
 //        });
 
-        //bitmap = getBitmapFromURL("http://image.tmdb.org/t/p/w342/aBBQSC8ZECGn6Wh92gKDOakSC8p.jpg");
+    //bitmap = getBitmapFromURL("http://image.tmdb.org/t/p/w342/aBBQSC8ZECGn6Wh92gKDOakSC8p.jpg");
 
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+        getOverflowMenu();
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    private void getOverflowMenu() {
+
+        try {
+            ViewConfiguration config = ViewConfiguration.get(this);
+            Field menuKeyField = ViewConfiguration.class.getDeclaredField("sHasPermanentMenuKey");
+            if (menuKeyField != null) {
+                menuKeyField.setAccessible(true);
+                menuKeyField.setBoolean(config, false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -85,7 +112,29 @@ public class MainActivity extends Activity {
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
+        item.setCheckable(false);
         int id = item.getItemId();
+
+//        switch (id){
+//            case R.id.oneColumn:
+//                numColumn=1;
+//                item.setChecked(true);
+//                break;
+//            case R.id.twoColumn:
+//                numColumn=2;
+//                item.setChecked(true);
+//                break;
+//            case R.id.threeColumn:
+//                numColumn=3;
+//                item.setChecked(true);
+//                break;
+//            case R.id.fourColumn:
+//                numColumn=4;
+//                item.setChecked(true);
+//                break;
+//            default:
+//                break;
+//        }
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
@@ -93,10 +142,17 @@ public class MainActivity extends Activity {
             getpic.execute("popularity.desc");
             return true;
         }
-
+        gridView.setNumColumns(numColumn);
+        gridView.setAdapter(new GridviewAdapter(MainActivity.this,items));
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Getting All Images Path
+     *
+     * @param
+     * @return ArrayList with images Path
+     */
 
     public class GetPic extends AsyncTask<String, Void, String[]> {
 
@@ -122,12 +178,12 @@ public class MainActivity extends Activity {
             return items;
         }
 
-
-        protected String[] doInBackground(String... params) {
+        protected String[] doInBackground(String... params){
             //if there's no rule of ordering,there is nothing to look up.Verify size of params.
             if (params.length == 0) {
                 return null;
             }
+
             HttpURLConnection urlConnection = null;
             BufferedReader reader = null;
 
@@ -188,63 +244,41 @@ public class MainActivity extends Activity {
             }
             return null;
         }
-
-        @Override
-        protected void onPostExecute(String[] result) {
-            if (result != null) {
-                GridView gridView = (GridView) findViewById(R.id.gridview);
-                GridviewAdapter gridViewAdapter = new GridviewAdapter(MainActivity.this, items);
-                gridView.setAdapter(gridViewAdapter);
-            }
-        }
-
-        public class GridviewAdapter extends BaseAdapter {
-            private Context context;
-            private String[] items;
-
-            public GridviewAdapter(Context context, String[] items) {
-                super();
-                this.context = context;
-                this.items = items;
-            }
-
-            @Override
-            public int getCount() {
-                return items.length;
-            }
-
-            //---returns the ID of an item---
-            public Object getItem(int position) {
-                return items[position];
-            }
-
-            //---returns the ID of an item---
-            public long getItemId(int position) {
-                return position;
-            }
-
-            //---returns an ImageView view---
-            public View getView(int position, View convertView, ViewGroup parent) {
-                ImageView imageView;
-                if (convertView == null) {
-                    imageView = new ImageView(context);
-                    convertView = imageView;
-//                imageView.setLayoutParams(new GridView.LayoutParams(85, 85));
-                    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-//                imageView.setPadding(5, 5, 5, 5);
-                } else {
-                    imageView = (ImageView) convertView;
-                }
-                Picasso.with(context)
-                        .load(items[position])
-                        .placeholder(R.drawable.placeholder)
-                        .fit()
-                        .into(imageView);
-
-//            imageView.setResource(items[position]);
-//            return imageView;
-                return convertView;
-            }
-        }
     }
 }
+//            public static ArrayList<String> getAllShownImagesPath (Activity activity){
+//                Uri url;
+//                Cursor cursor;
+//                int column_index_data, column_index_folder_name;
+//                ArrayList<String> listOfAllImages = new ArrayList<String>();
+//                String absolutePathOfImage = null;
+//                url = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+//
+//                String[] projection = {MediaStore.MediaColumns.DATA,
+//                        MediaStore.Images.Media.BUCKET_DISPLAY_NAME};
+//
+//                cursor = activity.getContentResolver().query(url, projection, null,
+//                        null, MediaStore.Images.Media.DATE_ADDED);
+//
+//                column_index_data = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
+//                column_index_folder_name = cursor
+//                        .getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
+//                while (cursor.moveToNext()) {
+//                    absolutePathOfImage = cursor.getString(column_index_data);
+//
+//                    listOfAllImages.add(absolutePathOfImage);
+//                }
+//
+//                Collections.reverse(listOfAllImages);
+//
+//                for (int i = 0; i < listOfAllImages.size(); i++) {
+//                    System.out.println(listOfAllImages.get(i));
+//                }
+//                return listOfAllImages;
+////        Log.d("Value of listOfAllImages",listOfAllImages );
+//            }
+
+
+
+
+
